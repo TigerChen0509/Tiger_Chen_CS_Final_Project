@@ -1,0 +1,16 @@
+node_modules/
+.env
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
+*.pyc
+venv/
+.DS_Store
+.expo/
+dist/
+web-build/
+*.tsbuildinfo
+/ios
+/android
+.claude/

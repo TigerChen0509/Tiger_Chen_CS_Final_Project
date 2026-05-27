@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit Task' if task else 'New Task' }} — TaskTock{% endblock %}
+{% block content %}
+
+<a href="{{ '/detail/' + task.task_id if task else '/' }}" class="back-link">← Back</a>
+<h1 class="page-title">{{ 'Edit Task' if task else 'New Task' }}</h1>
+
+{% if error %}
+<div class="error-box fade-in">⚠ {{ error }}</div>
+{% endif %}
+
+<form method="POST" id="task-form" novalidate>
+
+  <div class="form-group">
+    <label class="form-label" for="title">Task Title <span style="color:var(--red)">*</span></label>
+    <input class="form-control" type="text" id="title" name="title"
+           placeholder="e.g. Submit CS101 Lab 5"
+           value="{{ task.title if task else '' }}"
+           maxlength="120" autofocus required />
+    <div style="display:flex;justify-content:flex-end;margin-top:5px;">
+      <span id="title-count" class="form-hint">0 / 120</span>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label" for="notes">Notes <span style="color:var(--text-3);font-weight:400;text-transform:none;letter-spacing:0;">(optional)</span></label>
+    <textarea class="form-control" id="notes" name="notes"
+              placeholder="Any extra details, links, or reminders…"
+              rows="3">{{ task.notes if task else '' }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Due Date &amp; Time <span style="color:var(--red)">*</span></label>
+    <div class="form-row">
+      <input class="form-control" type="date" name="due_date"
+             value="{{ task.due_date_val if task else today }}" required />
+      <input class="form-control" type="time" name="due_time"
+             value="{{ task.due_time_val if task else '09:00' }}" required
+             style="max-width:140px;" />
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">Repeat</label>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% for val, lbl, icon in [('none','None','—'),('daily','Daily','📅'),('weekly','Weekly','📆')] %}
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;
+                    padding:10px 16px;border-radius:9px;border:1px solid var(--border);
+                    background:var(--card);transition:border-color .15s,background .15s;
+                    user-select:none;" class="repeat-option">
+        <input type="radio" name="repeat" value="{{ val }}"
+               {% if (task and task.repeat == val) or (not task and val == 'none') %}checked{% endif %}
+               style="display:none;" class="repeat-radio" />
+        <span style="font-size:.9rem;">{{ icon }}</span>
+        <span style="font-size:.875rem;font-weight:500;color:var(--text);">{{ lbl }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Preview card -->
+  <div id="preview-wrap" style="margin-bottom:24px;display:none;">
+    <div class="section-label" style="margin-top:0;margin-bottom:8px;">Preview</div>
+    <div style="background:var(--card);border:1px solid var(--accent);border-radius:12px;padding:14px 16px;opacity:.85;">
+      <div id="preview-title" style="font-weight:600;color:var(--white);font-size:.925rem;">—</div>
+      <div id="preview-notes" style="font-size:.8rem;color:var(--text-3);margin-top:2px;display:none;"></div>
+      <div style="margin-top:6px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <span id="preview-due" style="font-size:.78rem;color:var(--accent);font-weight:500;">—</span>
+        <span id="preview-repeat" style="display:none;" class="badge badge-repeat"></span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:4px;">
+    <button type="submit" class="btn btn-primary" id="submit-btn">
+      <span id="submit-label">{{ 'Save Changes' if task else 'Create Task' }}</span>
+    </button>
+    <a href="{{ '/detail/' + task.task_id if task else '/' }}" class="btn btn-ghost">Cancel</a>
+  </div>
+
+</form>
+
+<script>
+  /* ── Character counter ──────────────────────────────────────── */
+  const titleInput = document.getElementById('title');
+  const titleCount = document.getElementById('title-count');
+  function updateCount() {
+    const n = titleInput.value.length;
+    titleCount.textContent = `${n} / 120`;
+    titleCount.style.color = n > 100 ? 'var(--amber)' : 'var(--text-3)';
+  }
+  titleInput.addEventListener('input', () => { updateCount(); updatePreview(); });
+  updateCount();
+
+  /* ── Repeat option highlight ────────────────────────────────── */
+  document.querySelectorAll('.repeat-option').forEach(label => {
+    const radio = label.querySelector('.repeat-radio');
+    function sync() {
+      label.style.borderColor  = radio.checked ? 'var(--accent)'  : 'var(--border)';
+      label.style.background   = radio.checked ? 'rgba(79,126,247,.1)' : 'var(--card)';
+      label.querySelector('span:last-child').style.color = radio.checked ? 'var(--accent)' : 'var(--text)';
+    }
+    sync();
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.repeat-radio').forEach(r => {
+        const l = r.closest('.repeat-option');
+        l.style.borderColor = r.checked ? 'var(--accent)' : 'var(--border)';
+        l.style.background  = r.checked ? 'rgba(79,126,247,.1)' : 'var(--card)';
+        l.querySelector('span:last-child').style.color = r.checked ? 'var(--accent)' : 'var(--text)';
+      });
+      updatePreview();
+    });
+  });
+
+  /* ── Live preview ───────────────────────────────────────────── */
+  const notesInput  = document.getElementById('notes');
+  const dateInput   = document.querySelector('input[name=due_date]');
+  const timeInput   = document.querySelector('input[name=due_time]');
+  [notesInput, dateInput, timeInput].forEach(el => el?.addEventListener('input', updatePreview));
+
+  function updatePreview() {
+    const title = titleInput.value.trim();
+    const wrap  = document.getElementById('preview-wrap');
+    if (!title) { wrap.style.display = 'none'; return; }
+    wrap.style.display = '';
+
+    document.getElementById('preview-title').textContent = title;
+
+    const notes = notesInput.value.trim();
+    const notesEl = document.getElementById('preview-notes');
+    notesEl.textContent  = notes;
+    notesEl.style.display = notes ? '' : 'none';
+
+    const date = dateInput?.value, time = timeInput?.value;
+    const dueEl = document.getElementById('preview-due');
+    if (date && time) {
+      try {
+        const d   = new Date(`${date}T${time}`);
+        const now = new Date();
+        const diffM = Math.round((d - now) / 60000);
+        if (diffM < 0)        dueEl.textContent = `Overdue`;
+        else if (diffM < 60)  dueEl.textContent = `Due in ${diffM} min`;
+        else if (diffM < 1440)dueEl.textContent = `Today · ${d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}`;
+        else                  dueEl.textContent = d.toLocaleDateString([], {month:'short',day:'numeric'}) + ' · ' + d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
+      } catch (_) { dueEl.textContent = `${date} ${time}`; }
+    }
+
+    const repeatVal = document.querySelector('.repeat-radio:checked')?.value;
+    const repEl = document.getElementById('preview-repeat');
+    if (repeatVal && repeatVal !== 'none') {
+      repEl.textContent  = `🔄 ${repeatVal}`;
+      repEl.style.display = '';
+    } else {
+      repEl.style.display = 'none';
+    }
+  }
+  updatePreview();
+
+  /* ── Form submit feedback ───────────────────────────────────── */
+  document.getElementById('task-form').addEventListener('submit', () => {
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true;
+    btn.style.opacity = '.7';
+    document.getElementById('submit-label').textContent = 'Saving…';
+  });
+</script>
+
+{% endblock %}

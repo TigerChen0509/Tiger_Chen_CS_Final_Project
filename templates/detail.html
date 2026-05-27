@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}{{ task.title }} — TaskTock{% endblock %}
+{% block content %}
+
+<a href="/" class="back-link">← All Tasks</a>
+
+<!-- Header -->
+<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:24px;" class="fade-in">
+  <div style="flex-shrink:0;margin-top:3px;">
+    {% if task.status == 'completed' %}
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--green);display:flex;align-items:center;justify-content:center;font-size:1rem;color:#000;">✓</div>
+    {% elif task.status == 'missed' %}
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--red);display:flex;align-items:center;justify-content:center;font-size:1rem;color:#fff;">✕</div>
+    {% else %}
+      <div style="width:36px;height:36px;border-radius:50%;border:2px solid var(--border-s);display:flex;align-items:center;justify-content:center;font-size:.9rem;color:var(--text-3);">○</div>
+    {% endif %}
+  </div>
+  <div style="flex:1;min-width:0;">
+    <h1 style="font-size:1.3rem;font-weight:700;color:var(--white);letter-spacing:-.02em;line-height:1.3;
+               {% if task.status=='completed' %}text-decoration:line-through;opacity:.6;{% endif %}">
+      {{ task.title }}
+    </h1>
+    {% set di = due_info(task.due_date) %}
+    <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap;">
+      <span class="due-{{ di.cls }}" style="font-size:.825rem;font-weight:500;">{{ di.label }}</span>
+      <span class="badge badge-{{ task.status }}">{{ task.status }}</span>
+      {% if task.repeat != 'none' %}
+      <span class="badge badge-repeat">🔄 {{ task.repeat }}</span>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Smart warning -->
+{% if pattern.flagged %}
+<div class="warn-box fade-in" style="margin-bottom:20px;display:flex;gap:10px;align-items:flex-start;">
+  <span style="font-size:1.1rem;flex-shrink:0;">⚠</span>
+  <span>{{ pattern.message }}</span>
+</div>
+{% endif %}
+
+<!-- Detail card -->
+<div class="card fade-in" style="margin-bottom:20px;">
+
+  {% if task.notes %}
+  <div class="card-row">
+    <span class="card-row-label">📝 Notes</span>
+    <span class="card-row-value" style="color:var(--text);white-space:pre-wrap;">{{ task.notes }}</span>
+  </div>
+  {% endif %}
+
+  <div class="card-row">
+    <span class="card-row-label">📅 Due</span>
+    <span class="card-row-value">{{ fmt_due(task.due_date) }}</span>
+  </div>
+
+  <div class="card-row">
+    <span class="card-row-label">🔄 Repeat</span>
+    <span class="card-row-value" style="{% if task.repeat != 'none' %}color:var(--violet);font-weight:500;{% endif %}">
+      {{ task.repeat.capitalize() }}
+    </span>
+  </div>
+
+  <div class="card-row">
+    <span class="card-row-label">📌 Status</span>
+    <span class="badge badge-{{ task.status }}" style="font-size:.8rem;">{{ task.status.capitalize() }}</span>
+  </div>
+
+  {% if task.snooze_count %}
+  <div class="card-row">
+    <span class="card-row-label">⏱ Snoozed</span>
+    <span class="card-row-value">{{ task.snooze_count }} time{{ 's' if task.snooze_count != 1 }}</span>
+  </div>
+  {% endif %}
+
+  {% if task.completed_at %}
+  <div class="card-row">
+    <span class="card-row-label">✓ Done at</span>
+    <span class="card-row-value">{{ fmt_due(task.completed_at) }}</span>
+  </div>
+  {% endif %}
+
+  <div class="card-row">
+    <span class="card-row-label">🕐 Created</span>
+    <span class="card-row-value" style="color:var(--text-2);">{{ fmt_due(task.created_at) }}</span>
+  </div>
+
+</div>
+
+<!-- Actions -->
+<div style="display:flex;flex-direction:column;gap:10px;" class="fade-in">
+
+  {% if task.status == 'pending' %}
+  <form method="POST" action="/complete/{{ task.task_id }}">
+    <button type="submit" class="btn btn-success btn-full" style="font-size:.95rem;padding:12px;">
+      ✓ Mark Complete
+    </button>
+  </form>
+
+  <form method="POST" action="/snooze/{{ task.task_id }}" style="display:flex;gap:8px;">
+    <input type="hidden" name="minutes" value="5" />
+    <button type="submit" class="btn btn-warning btn-full" style="font-size:.875rem;">⏱ Snooze 5 min</button>
+    <input type="hidden" name="minutes" id="custom-snooze-val" value="15" />
+  </form>
+
+  <div style="display:flex;gap:8px;">
+    <form method="POST" action="/snooze/{{ task.task_id }}" style="flex:1;">
+      <input type="hidden" name="minutes" value="15" />
+      <button class="btn btn-ghost btn-full btn-sm">+15 min</button>
+    </form>
+    <form method="POST" action="/snooze/{{ task.task_id }}" style="flex:1;">
+      <input type="hidden" name="minutes" value="60" />
+      <button class="btn btn-ghost btn-full btn-sm">+1 hour</button>
+    </form>
+    <form method="POST" action="/snooze/{{ task.task_id }}" style="flex:1;">
+      <input type="hidden" name="minutes" value="1440" />
+      <button class="btn btn-ghost btn-full btn-sm">+1 day</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <div style="height:1px;background:var(--border);margin:4px 0;"></div>
+
+  <a href="/edit/{{ task.task_id }}" class="btn btn-primary btn-full" style="justify-content:center;font-size:.9rem;">
+    ✏ Edit Task
+  </a>
+
+  <form method="POST" action="/delete/{{ task.task_id }}"
+        onsubmit="return confirm('Delete \'{{ task.title }}\'? This cannot be undone.')">
+    <button type="submit" class="btn btn-danger btn-full" style="font-size:.9rem;">
+      🗑 Delete Task
+    </button>
+  </form>
+
+</div>
+
+{% endblock %}

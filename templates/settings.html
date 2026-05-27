@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Settings — TaskTock{% endblock %}
+{% block content %}
+
+<a href="/" class="back-link">← Back</a>
+<h1 class="page-title">Settings</h1>
+
+<!-- Stats summary -->
+<div style="background:linear-gradient(135deg,rgba(79,126,247,.12),rgba(124,93,246,.12));
+            border:1px solid rgba(79,126,247,.25);border-radius:14px;
+            padding:20px 22px;margin-bottom:28px;display:flex;gap:28px;flex-wrap:wrap;"
+     class="fade-in">
+  {% for label, key, color in [
+    ('Total Tasks',  'total',      'var(--white)'),
+    ('Pending',      'pending',    'var(--amber)'),
+    ('Done Today',   'done_today', 'var(--green)'),
+    ('Missed',       'missed',     'var(--red)'),
+  ] %}
+  <div>
+    <div style="font-size:1.6rem;font-weight:700;color:{{ color }};line-height:1;">{{ stats[key] }}</div>
+    <div style="font-size:.72rem;color:var(--text-3);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Notifications -->
+<div class="section-label">Notifications</div>
+<div class="card fade-in" style="margin-bottom:24px;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+    <div>
+      <div style="color:var(--white);font-weight:500;font-size:.9rem;">🔔 Alarm Notifications</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">Get alerted when a task is due</div>
+    </div>
+    <label class="toggle-switch">
+      <input type="checkbox" id="notif-toggle" checked />
+      <span class="toggle-track"></span>
+    </label>
+  </div>
+  <div class="divider"></div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+    <div>
+      <div style="color:var(--white);font-weight:500;font-size:.9rem;">⏱ Default Snooze</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">Minutes to delay when snoozed</div>
+    </div>
+    <select id="snooze-default" class="form-control"
+            style="width:90px;padding:7px 10px;font-size:.85rem;">
+      <option value="5"  selected>5 min</option>
+      <option value="10">10 min</option>
+      <option value="15">15 min</option>
+      <option value="30">30 min</option>
+    </select>
+  </div>
+</div>
+
+<!-- Preferences -->
+<div class="section-label">Preferences</div>
+<div class="card fade-in" style="margin-bottom:24px;">
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+    <div>
+      <div style="color:var(--white);font-weight:500;font-size:.9rem;">🌙 Dark Mode</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">Always on — designed for dark displays</div>
+    </div>
+    <span class="badge" style="background:rgba(124,93,246,.12);color:var(--violet);">Active</span>
+  </div>
+  <div class="divider"></div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+    <div>
+      <div style="color:var(--white);font-weight:500;font-size:.9rem;">⌨ Keyboard Shortcuts</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">Speed up common actions</div>
+    </div>
+    <button onclick="toggleShortcuts()" class="btn btn-ghost btn-sm" id="kb-toggle">Show</button>
+  </div>
+
+  <div id="kb-panel" style="display:none;padding:0 18px 16px;">
+    <div style="background:var(--surface);border-radius:9px;padding:14px 16px;font-size:.825rem;">
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:8px 20px;align-items:center;">
+        <span class="kbd">N</span>          <span style="color:var(--text-2);">New task</span>
+        <span class="kbd">/</span>          <span style="color:var(--text-2);">Focus search</span>
+        <span class="kbd">Esc</span>        <span style="color:var(--text-2);">Close alarm / modal</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- About -->
+<div class="section-label">About</div>
+<div class="card fade-in" style="margin-bottom:28px;">
+  <div style="display:flex;align-items:center;gap:16px;padding:18px;">
+    <div style="width:44px;height:44px;border-radius:12px;flex-shrink:0;
+                background:linear-gradient(135deg,var(--accent),var(--violet));
+                display:flex;align-items:center;justify-content:center;font-size:1.4rem;">⏰</div>
+    <div>
+      <div style="color:var(--white);font-weight:600;font-size:.95rem;">TaskTock</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">v1.0.0 MVP · Built with Python + Flask</div>
+    </div>
+    <span class="badge" style="margin-left:auto;background:rgba(30,200,118,.1);color:var(--green);">v1.0</span>
+  </div>
+</div>
+
+<!-- Danger zone -->
+<div class="section-label" style="color:var(--red);">Danger Zone</div>
+<div class="card fade-in" style="border-color:rgba(244,69,90,.2);">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+    <div>
+      <div style="color:var(--white);font-weight:500;font-size:.9rem;">🗑 Clear All Completed</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">Remove all completed and missed tasks</div>
+    </div>
+    <button onclick="clearDone()" class="btn btn-sm" style="background:rgba(244,69,90,.12);color:var(--red);border:1px solid rgba(244,69,90,.25);">Clear</button>
+  </div>
+  <div class="divider" style="background:rgba(244,69,90,.12);"></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;">
+    <div>
+      <div style="color:var(--red);font-weight:500;font-size:.9rem;">⚠ Delete All Tasks</div>
+      <div style="color:var(--text-3);font-size:.78rem;margin-top:2px;">Permanently remove every task</div>
+    </div>
+    <button onclick="clearAll()" class="btn btn-danger btn-sm">Delete All</button>
+  </div>
+</div>
+
+<div style="margin-top:28px;">
+  <button onclick="saveSettings()" class="btn btn-primary" style="font-size:.925rem;padding:11px 24px;">
+    Save Settings
+  </button>
+</div>
+
+<style>
+  .toggle-switch { position:relative; display:inline-block; width:44px; height:24px; cursor:pointer; }
+  .toggle-switch input { opacity:0; width:0; height:0; }
+  .toggle-track {
+    position:absolute; inset:0; border-radius:24px;
+    background:var(--border-s); transition:background .2s;
+  }
+  .toggle-track::after {
+    content:''; position:absolute; left:3px; top:3px;
+    width:18px; height:18px; border-radius:50%;
+    background:var(--white); transition:transform .2s;
+  }
+  .toggle-switch input:checked + .toggle-track { background:var(--accent); }
+  .toggle-switch input:checked + .toggle-track::after { transform:translateX(20px); }
+</style>
+
+<script>
+  function toggleShortcuts() {
+    const p   = document.getElementById('kb-panel');
+    const btn = document.getElementById('kb-toggle');
+    const open = p.style.display === 'none';
+    p.style.display = open ? '' : 'none';
+    btn.textContent = open ? 'Hide' : 'Show';
+  }
+
+  function saveSettings() {
+    showToast('Settings saved!', 'success');
+  }
+
+  async function clearDone() {
+    if (!confirm('Remove all completed and missed tasks?')) return;
+    const r = await fetch('/api/clear-done', { method: 'POST' });
+    if (r.ok) { showToast('Cleared completed tasks', 'success'); setTimeout(() => location.reload(), 800); }
+  }
+
+  async function clearAll() {
+    if (!confirm('Delete ALL tasks? This cannot be undone.')) return;
+    if (!confirm('Are you absolutely sure?')) return;
+    const r = await fetch('/api/clear-all', { method: 'POST' });
+    if (r.ok) { showToast('All tasks deleted', 'error'); setTimeout(() => location.href = '/', 800); }
+  }
+</script>
+
+{% endblock %}

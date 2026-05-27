@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}TaskTock{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #05080f;
+      --surface:  #0b1120;
+      --card:     #0f1724;
+      --card-h:   #152030;
+      --border:   #1a2d42;
+      --border-s: #243d57;
+      --accent:   #4f7ef7;
+      --accent-d: #3562d8;
+      --violet:   #7c5df6;
+      --green:    #1ec876;
+      --red:      #f4455a;
+      --amber:    #f5a623;
+      --blue-dim: #1a3060;
+      --text:     #dde6f0;
+      --text-2:   #8fa3b8;
+      --text-3:   #5b7390;
+      --white:    #f0f6ff;
+
+      /* due-date urgency colours */
+      --overdue:   #f4455a;
+      --urgent:    #f5a623;
+      --today:     #4f7ef7;
+      --tomorrow:  #7c5df6;
+      --week:      #1ec876;
+      --future:    #8fa3b8;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Nav ─────────────────────────────────────────────────────── */
+    nav {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(5, 8, 15, .85);
+      backdrop-filter: blur(14px) saturate(180%);
+      border-bottom: 1px solid var(--border);
+      height: 58px;
+      display: flex; align-items: center;
+      padding: 0 24px;
+      gap: 12px;
+    }
+    .nav-logo {
+      display: flex; align-items: center; gap: 10px;
+      text-decoration: none; flex: 1;
+    }
+    .nav-logo-icon {
+      width: 32px; height: 32px; border-radius: 9px;
+      background: linear-gradient(135deg, var(--accent), var(--violet));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .nav-logo-text {
+      font-size: 1.05rem; font-weight: 700; color: var(--white);
+      letter-spacing: -.02em;
+    }
+    .nav-actions { display: flex; align-items: center; gap: 6px; }
+    .nav-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 34px; height: 34px; border-radius: 8px;
+      color: var(--text-2); background: none; border: none;
+      font-size: 1rem; cursor: pointer; text-decoration: none;
+      transition: background .15s, color .15s;
+    }
+    .nav-btn:hover { background: var(--card); color: var(--white); }
+    .nav-btn.active { background: var(--blue-dim); color: var(--accent); }
+
+    /* ── Layout ─────────────────────────────────────────────────── */
+    .page { max-width: 620px; margin: 0 auto; padding: 28px 18px 100px; }
+
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 7px;
+      padding: 9px 18px; border: none; border-radius: 9px;
+      font-size: .875rem; font-weight: 600; font-family: inherit;
+      cursor: pointer; text-decoration: none; user-select: none;
+      transition: filter .15s, transform .1s, opacity .15s;
+      white-space: nowrap;
+    }
+    .btn:hover  { filter: brightness(1.12); }
+    .btn:active { transform: scale(.97); }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-violet  { background: var(--violet); color: #fff; }
+    .btn-success { background: var(--green);  color: #000; }
+    .btn-danger  { background: var(--red);    color: #fff; }
+    .btn-warning { background: var(--amber);  color: #000; }
+    .btn-ghost   { background: var(--card);   color: var(--text-2); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--white); border-color: var(--border-s); }
+    .btn-sm      { padding: 6px 13px; font-size: .8rem; border-radius: 7px; }
+    .btn-xs      { padding: 4px 10px; font-size: .75rem; border-radius: 6px; }
+    .btn-full    { display: flex; width: 100%; justify-content: center; }
+    .btn-icon    { width: 34px; height: 34px; padding: 0; border-radius: 8px; }
+
+    /* ── Cards ───────────────────────────────────────────────────── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .card-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .card-row:last-child { border-bottom: none; }
+    .card-row-label {
+      font-size: .75rem; font-weight: 600; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: .06em;
+      width: 72px; flex-shrink: 0;
+    }
+    .card-row-value { color: var(--text); font-size: .9rem; word-break: break-word; }
+
+    /* ── Form ────────────────────────────────────────────────────── */
+    .form-group { margin-bottom: 20px; }
+    .form-label {
+      display: block; font-size: .75rem; font-weight: 600;
+      color: var(--text-3); text-transform: uppercase; letter-spacing: .06em;
+      margin-bottom: 8px;
+    }
+    .form-control {
+      width: 100%; padding: 11px 14px;
+      background: var(--card); color: var(--white);
+      border: 1px solid var(--border); border-radius: 9px;
+      font-size: .9rem; font-family: inherit;
+      outline: none; transition: border-color .18s, box-shadow .18s;
+      -webkit-appearance: none;
+    }
+    .form-control::placeholder { color: var(--text-3); }
+    .form-control:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(79,126,247,.14);
+    }
+    textarea.form-control { resize: vertical; min-height: 80px; }
+    .form-row { display: flex; gap: 10px; }
+    .form-row .form-control { flex: 1; }
+    .form-hint { font-size: .78rem; color: var(--text-3); margin-top: 5px; }
+
+    /* ── Badges & tags ───────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px; border-radius: 20px;
+      font-size: .72rem; font-weight: 600; letter-spacing: .02em;
+    }
+    .badge-pending   { background: rgba(245,166,35,.12);  color: var(--amber); }
+    .badge-completed { background: rgba(30,200,118,.12);  color: var(--green); }
+    .badge-missed    { background: rgba(244,69,90,.12);   color: var(--red);   }
+    .badge-repeat    { background: rgba(124,93,246,.12);  color: var(--violet);}
+
+    /* ── Due label colours ──────────────────────────────────────── */
+    .due-overdue  { color: var(--overdue); }
+    .due-urgent   { color: var(--urgent);  }
+    .due-today    { color: var(--today);   }
+    .due-tomorrow { color: var(--tomorrow);}
+    .due-week     { color: var(--week);    }
+    .due-future   { color: var(--future);  }
+
+    /* ── Misc ────────────────────────────────────────────────────── */
+    .divider { height: 1px; background: var(--border); }
+    .section-label {
+      font-size: .7rem; font-weight: 700; color: var(--text-3);
+      letter-spacing: .09em; text-transform: uppercase; margin: 22px 0 10px;
+    }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--accent); font-size: .875rem; text-decoration: none;
+      font-weight: 500; margin-bottom: 22px;
+      transition: color .15s;
+    }
+    .back-link:hover { color: var(--white); }
+    .page-title { font-size: 1.4rem; font-weight: 700; color: var(--white); letter-spacing: -.02em; margin-bottom: 24px; }
+    .error-box  { background: rgba(244,69,90,.08); border: 1px solid rgba(244,69,90,.3); border-radius: 9px; padding: 12px 16px; color: var(--red); font-size: .875rem; margin-bottom: 18px; }
+    .warn-box   { background: rgba(245,166,35,.08); border: 1px solid rgba(245,166,35,.3); border-radius: 9px; padding: 12px 16px; color: var(--amber); font-size: .875rem; }
+    .info-box   { background: rgba(79,126,247,.08); border: 1px solid rgba(79,126,247,.3); border-radius: 9px; padding: 12px 16px; color: var(--accent); font-size: .875rem; }
+
+    /* ── Animations ──────────────────────────────────────────────── */
+    @keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes slideUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes pop     { 0%{transform:scale(1)} 40%{transform:scale(1.18)} 100%{transform:scale(1)} }
+    @keyframes spin    { to { transform: rotate(360deg); } }
+
+    .fade-in { animation: fadeIn .25s ease both; }
+
+    /* ── Toast ───────────────────────────────────────────────────── */
+    #toast-container {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%); z-index: 1000;
+      display: flex; flex-direction: column; gap: 10px;
+      pointer-events: none;
+    }
+    .toast {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 18px; border-radius: 10px;
+      font-size: .875rem; font-weight: 500;
+      background: var(--surface); border: 1px solid var(--border);
+      box-shadow: 0 8px 32px rgba(0,0,0,.5);
+      animation: slideUp .22s ease both;
+      pointer-events: auto; white-space: nowrap;
+    }
+    .toast.success { border-color: rgba(30,200,118,.4); color: var(--green); }
+    .toast.error   { border-color: rgba(244,69,90,.4);  color: var(--red);   }
+    .toast.info    { border-color: rgba(79,126,247,.4); color: var(--accent);}
+    .toast-icon { font-size: 1rem; }
+
+    /* ── Alarm modal ─────────────────────────────────────────────── */
+    #alarm-overlay {
+      display: none; position: fixed; inset: 0; z-index: 500;
+      background: rgba(5,8,15,.7); backdrop-filter: blur(4px);
+      align-items: flex-end; justify-content: center;
+      padding-bottom: 32px;
+    }
+    #alarm-overlay.open { display: flex; }
+    #alarm-card {
+      background: var(--surface); border: 1px solid var(--border-s);
+      border-radius: 16px; padding: 24px 28px; width: 360px; max-width: 92vw;
+      animation: slideUp .25s ease;
+      box-shadow: 0 24px 64px rgba(0,0,0,.6);
+    }
+    #alarm-card h3 { color: var(--amber); font-size: 1rem; margin-bottom: 4px; }
+    #alarm-card p  { color: var(--white); font-size: 1.05rem; font-weight: 600; margin-bottom: 18px; }
+    .alarm-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+    /* ── Keyboard shortcut hint ──────────────────────────────────── */
+    .kbd {
+      display: inline-block; padding: 1px 6px; border-radius: 5px;
+      background: var(--card); border: 1px solid var(--border-s);
+      font-size: .72rem; color: var(--text-3); font-family: monospace;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a class="nav-logo" href="/">
+      <div class="nav-logo-icon">⏰</div>
+      <span class="nav-logo-text">TaskTock</span>
+    </a>
+    <div class="nav-actions">
+      <a href="/add"      class="btn btn-primary btn-sm" style="gap:5px;">&#＋; New <span class="kbd" style="font-size:.65rem;opacity:.7;margin-left:2px;">N</span></a>
+      <a href="/settings" class="nav-btn" title="Settings">⚙</a>
+    </div>
+  </nav>
+
+  <div class="page">
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <!-- Alarm modal -->
+  <div id="alarm-overlay">
+    <div id="alarm-card">
+      <h3>⏰ Task Due</h3>
+      <p id="alarm-title"></p>
+      <div class="alarm-actions">
+        <button class="btn btn-success btn-sm" id="alarm-done-btn">✓ Mark Done</button>
+        <button class="btn btn-warning btn-sm" id="alarm-snooze-btn">⏱ Snooze 5m</button>
+        <button class="btn btn-ghost btn-sm" onclick="dismissAlarm()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ── Toast ─────────────────────────────────────────────────── */
+    function showToast(msg, type = 'info', duration = 3000) {
+      const icons = { success: '✓', error: '✕', info: 'ℹ' };
+      const el = document.createElement('div');
+      el.className = `toast ${type}`;
+      el.innerHTML = `<span class="toast-icon">${icons[type] || 'ℹ'}</span>${msg}`;
+      const c = document.getElementById('toast-container');
+      c.appendChild(el);
+      setTimeout(() => {
+        el.style.transition = 'opacity .3s, transform .3s';
+        el.style.opacity    = '0';
+        el.style.transform  = 'translateY(8px)';
+        setTimeout(() => el.remove(), 320);
+      }, duration);
+    }
+
+    /* ── Stats DOM update ──────────────────────────────────────── */
+    function applyStats(s) {
+      if (!s) return;
+      document.querySelectorAll('[data-stat]').forEach(el => {
+        const key = el.dataset.stat;
+        if (s[key] !== undefined) el.textContent = s[key];
+      });
+    }
+
+    /* ── Alarm ──────────────────────────────────────────────────── */
+    const _firedAlarms = new Set(JSON.parse(sessionStorage.getItem('tt_fired') || '[]'));
+    let _alarmQueue = [], _alarmCurrent = null;
+
+    function dismissAlarm() {
+      document.getElementById('alarm-overlay').classList.remove('open');
+      _alarmCurrent = null;
+      if (_alarmQueue.length) setTimeout(() => showAlarm(_alarmQueue.shift()), 400);
+    }
+
+    function showAlarm(task) {
+      _alarmCurrent = task;
+      document.getElementById('alarm-title').textContent = task.title;
+      document.getElementById('alarm-overlay').classList.add('open');
+
+      document.getElementById('alarm-done-btn').onclick = async () => {
+        const r = await fetch(`/api/complete/${task.task_id}`, { method: 'POST' });
+        const d = await r.json();
+        applyStats(d.stats);
+        dismissAlarm();
+        const el = document.getElementById('task-' + task.task_id);
+        if (el) animateOut(el);
+        showToast('Task completed!', 'success');
+      };
+
+      document.getElementById('alarm-snooze-btn').onclick = async () => {
+        await fetch(`/api/snooze/${task.task_id}`, {
+          method: 'POST', headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ minutes: 5 })
+        });
+        _firedAlarms.delete(task.task_id);
+        sessionStorage.setItem('tt_fired', JSON.stringify([..._firedAlarms]));
+        dismissAlarm();
+        showToast('Snoozed for 5 minutes', 'info');
+      };
+    }
+
+    async function pollAlarms() {
+      try {
+        const r   = await fetch('/api/due-now');
+        const due = await r.json();
+        for (const t of due) {
+          if (!_firedAlarms.has(t.task_id)) {
+            _firedAlarms.add(t.task_id);
+            sessionStorage.setItem('tt_fired', JSON.stringify([..._firedAlarms]));
+            _alarmCurrent ? _alarmQueue.push(t) : showAlarm(t);
+          }
+        }
+      } catch (_) {}
+    }
+    pollAlarms();
+    setInterval(pollAlarms, 30000);
+
+    /* ── Keyboard shortcuts ─────────────────────────────────────── */
+    document.addEventListener('keydown', e => {
+      const tag = document.activeElement.tagName;
+      if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+      if (e.key === 'n' || e.key === 'N') { e.preventDefault(); location.href = '/add'; }
+      if (e.key === 'Escape') dismissAlarm();
+      if (e.key === '/' ) {
+        e.preventDefault();
+        const s = document.getElementById('search-input');
+        if (s) s.focus();
+      }
+    });
+
+    /* ── Animate card out ───────────────────────────────────────── */
+    function animateOut(el, cb) {
+      el.style.transition = 'opacity .22s, transform .22s, max-height .3s, margin .3s, padding .3s';
+      el.style.opacity    = '0';
+      el.style.transform  = 'scale(.97)';
+      setTimeout(() => {
+        el.style.maxHeight = '0';
+        el.style.margin    = '0';
+        el.style.padding   = '0';
+        el.style.overflow  = 'hidden';
+        setTimeout(() => { el.remove(); if (cb) cb(); }, 300);
+      }, 220);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% block title %}TaskTock — Home{% endblock %}
+{% block content %}
+
+<!-- Missed-on-boot banner -->
+{% if missed_on_boot %}
+<div class="info-box fade-in" style="margin-bottom:20px; display:flex; align-items:center; gap:10px;">
+  <span>⚠</span>
+  <span>You missed <strong>{{ missed_on_boot }} task{{ 's' if missed_on_boot != 1 }}</strong> while TaskTock was closed.</span>
+  <button onclick="this.parentElement.remove()" style="margin-left:auto;background:none;border:none;color:inherit;cursor:pointer;font-size:1rem;">✕</button>
+</div>
+{% endif %}
+
+<!-- Greeting -->
+<div style="margin-bottom:24px;" class="fade-in">
+  <h1 style="font-size:1.5rem;font-weight:700;color:var(--white);letter-spacing:-.03em;">
+    {{ now_str }}
+  </h1>
+  <p style="color:var(--text-2);font-size:.9rem;margin-top:3px;">
+    {% if stats.pending == 0 %}
+      You're all caught up. Nice work! 🎉
+    {% elif stats.pending == 1 %}
+      You have 1 task pending.
+    {% else %}
+      You have {{ stats.pending }} tasks pending.
+    {% endif %}
+  </p>
+</div>
+
+<!-- Stats strip -->
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:28px;" class="fade-in">
+  {% for label, key, color, icon in [
+    ('Total',    'total',      'var(--text-2)', '📋'),
+    ('Pending',  'pending',    'var(--amber)',  '⏳'),
+    ('Done',     'done_today', 'var(--green)',  '✓'),
+    ('Missed',   'missed',     'var(--red)',    '✕'),
+  ] %}
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:12px;padding:14px 12px;text-align:center;">
+    <div style="font-size:1.5rem;font-weight:700;color:{{ color }};line-height:1;" data-stat="{{ key }}">{{ stats[key] }}</div>
+    <div style="font-size:.72rem;color:var(--text-3);margin-top:4px;font-weight:500;letter-spacing:.04em;text-transform:uppercase;">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Search + filter row -->
+<div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px;" class="fade-in">
+  <div style="position:relative;">
+    <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--text-3);font-size:.95rem;pointer-events:none;">🔍</span>
+    <input id="search-input" type="text" placeholder="Search tasks…"
+      style="width:100%;padding:10px 14px 10px 38px;background:var(--card);color:var(--white);
+             border:1px solid var(--border);border-radius:9px;font-size:.875rem;font-family:inherit;
+             outline:none;transition:border-color .18s,box-shadow .18s;"
+      oninput="filterTasks()"
+      onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px rgba(79,126,247,.14)'"
+      onblur="this.style.borderColor='var(--border)';this.style.boxShadow='none'" />
+  </div>
+
+  <div id="filter-tabs" style="display:flex;gap:6px;">
+    {% for label, val in [('All','all'),('Today','today'),('Pending','pending'),('Done','done')] %}
+    <button onclick="setFilter('{{ val }}')"
+      data-filter="{{ val }}"
+      class="btn btn-sm {% if loop.first %}btn-primary{% else %}btn-ghost{% endif %}"
+      style="border-radius:20px;{% if not loop.first %}border:1px solid var(--border);{% endif %}">
+      {{ label }}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Task list -->
+<div id="task-list">
+
+{% if not pending and not others %}
+  <div id="empty-state" style="text-align:center;padding:64px 0;" class="fade-in">
+    <div style="font-size:3rem;margin-bottom:16px;">📋</div>
+    <div style="color:var(--white);font-size:1.05rem;font-weight:600;margin-bottom:8px;">No tasks yet</div>
+    <div style="color:var(--text-2);font-size:.875rem;margin-bottom:24px;">Add your first task and start staying on track.</div>
+    <a href="/add" class="btn btn-primary">＋ Add your first task</a>
+  </div>
+{% else %}
+
+  {% if pending %}
+  <div class="section-label">Pending <span style="opacity:.5;font-size:.65rem;">({{ pending|length }})</span></div>
+  {% for t in pending %}
+  {{ task_card(t, due_info(t.due_date)) }}
+  {% endfor %}
+  {% endif %}
+
+  {% if others %}
+  <div class="section-label" style="{% if pending %}margin-top:28px;{% endif %}">
+    Done / Missed <span style="opacity:.5;font-size:.65rem;">({{ others|length }})</span>
+  </div>
+  {% for t in others %}
+  {{ task_card(t, due_info(t.due_date), dimmed=True) }}
+  {% endfor %}
+  {% endif %}
+
+{% endif %}
+</div>
+
+<!-- FAB -->
+<a href="/add" id="fab"
+   style="position:fixed;bottom:28px;right:28px;z-index:100;
+          width:54px;height:54px;border-radius:50%;
+          background:linear-gradient(135deg,var(--accent),var(--violet));
+          display:flex;align-items:center;justify-content:center;
+          font-size:1.5rem;color:#fff;text-decoration:none;
+          box-shadow:0 6px 24px rgba(79,126,247,.45);
+          transition:transform .2s,box-shadow .2s;"
+   onmouseover="this.style.transform='scale(1.08)';this.style.boxShadow='0 10px 32px rgba(79,126,247,.6)'"
+   onmouseout="this.style.transform='scale(1)';this.style.boxShadow='0 6px 24px rgba(79,126,247,.45)'"
+   title="New task (N)">＋</a>
+
+{# ── Macro: task card ── #}
+{% macro task_card(t, di, dimmed=False) %}
+<div id="task-{{ t.task_id }}"
+     class="fade-in"
+     data-title="{{ t.title|lower }}"
+     data-status="{{ t.status }}"
+     data-due="{{ t.due_date[:10] }}"
+     style="background:var(--card);border:1px solid var(--border);border-radius:12px;
+            margin-bottom:8px;overflow:hidden;
+            transition:border-color .18s,background .18s;
+            {% if dimmed %}opacity:.55;{% endif %}"
+     onmouseover="this.style.borderColor='var(--border-s)';this.style.background='var(--card-h)'"
+     onmouseout="this.style.borderColor='var(--border)';this.style.background='var(--card)'"
+>
+  <div style="display:flex;align-items:center;gap:12px;padding:14px 14px 14px 16px;">
+
+    <!-- Checkbox -->
+    <button onclick="handleComplete('{{ t.task_id }}', this)"
+      title="Mark complete"
+      style="flex-shrink:0;width:22px;height:22px;border-radius:50%;
+             background:{% if t.status=='completed' %}var(--green){% else %}transparent{% endif %};
+             border:2px solid {% if t.status=='completed' %}var(--green){% elif t.status=='missed' %}var(--red){% else %}var(--border-s){% endif %};
+             cursor:{% if t.status=='pending' %}pointer{% else %}default{% endif %};
+             display:flex;align-items:center;justify-content:center;
+             transition:all .18s;font-size:.7rem;color:#000;">
+      {% if t.status == 'completed' %}✓{% elif t.status == 'missed' %}✕{% endif %}
+    </button>
+
+    <!-- Content -->
+    <a href="/detail/{{ t.task_id }}"
+       style="flex:1;text-decoration:none;min-width:0;">
+      <div style="font-weight:600;font-size:.925rem;
+                  color:{% if t.status!='pending' %}var(--text-3){% else %}var(--white){% endif %};
+                  {% if t.status=='completed' %}text-decoration:line-through;{% endif %}
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ t.title }}
+      </div>
+      {% if t.notes %}
+      <div style="font-size:.8rem;color:var(--text-3);margin-top:2px;
+                  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {{ t.notes }}
+      </div>
+      {% endif %}
+      <div style="display:flex;align-items:center;gap:8px;margin-top:5px;flex-wrap:wrap;">
+        <span class="due-{{ di.cls }}" style="font-size:.78rem;font-weight:500;">
+          {{ di.label }}
+        </span>
+        {% if t.repeat != 'none' %}
+        <span class="badge badge-repeat">🔄 {{ t.repeat }}</span>
+        {% endif %}
+        <span class="badge badge-{{ t.status }}">{{ t.status }}</span>
+      </div>
+    </a>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:5px;flex-shrink:0;">
+      {% if t.status == 'pending' %}
+      <button onclick="handleSnooze('{{ t.task_id }}', this)"
+        class="btn btn-ghost btn-xs btn-icon" title="Snooze 5 min" style="font-size:.85rem;">⏱</button>
+      {% endif %}
+      <button onclick="handleDelete('{{ t.task_id }}', this)"
+        class="btn btn-ghost btn-xs btn-icon" title="Delete" style="font-size:.85rem;">🗑</button>
+    </div>
+
+  </div>
+</div>
+{% endmacro %}
+
+<style>
+  #fab:hover { transform: scale(1.08); }
+</style>
+
+<script>
+  let _activeFilter = 'all';
+
+  /* ── Complete ───────────────────────────────────────────────── */
+  async function handleComplete(id, btn) {
+    const card = document.getElementById('task-' + id);
+    if (!card || card.dataset.status !== 'pending') return;
+
+    btn.style.background   = 'var(--green)';
+    btn.style.borderColor  = 'var(--green)';
+    btn.innerHTML          = '✓';
+    btn.style.color        = '#000';
+    btn.style.animation    = 'pop .3s ease';
+
+    const r = await fetch(`/api/complete/${id}`, { method: 'POST' });
+    const d = await r.json();
+    applyStats(d.stats);
+
+    setTimeout(() => animateOut(card, updateEmptyState), 350);
+    showToast('Task completed! ✓', 'success');
+  }
+
+  /* ── Delete ─────────────────────────────────────────────────── */
+  async function handleDelete(id, btn) {
+    const card = document.getElementById('task-' + id);
+    if (!card) return;
+    if (!confirm(`Delete "${card.querySelector('a div').textContent.trim()}"? This cannot be undone.`)) return;
+    const r = await fetch(`/api/delete/${id}`, { method: 'POST' });
+    const d = await r.json();
+    applyStats(d.stats);
+    animateOut(card, updateEmptyState);
+    showToast('Task deleted', 'error');
+  }
+
+  /* ── Snooze ─────────────────────────────────────────────────── */
+  async function handleSnooze(id, btn) {
+    const r = await fetch(`/api/snooze/${id}`, {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ minutes: 5 })
+    });
+    const d = await r.json();
+    if (d.ok && d.due_info) {
+      const card = document.getElementById('task-' + id);
+      if (card) {
+        const dueEl = card.querySelector('[class^="due-"]');
+        if (dueEl) {
+          dueEl.className = `due-${d.due_info.cls}`;
+          dueEl.textContent = d.due_info.label;
+        }
+      }
+      applyStats(d.stats);
+      showToast('Snoozed for 5 minutes', 'info');
+    }
+  }
+
+  /* ── Search / Filter ────────────────────────────────────────── */
+  function filterTasks() {
+    const q     = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const today = new Date().toISOString().slice(0, 10);
+    let   anyVisible = false;
+
+    document.querySelectorAll('[id^="task-"]').forEach(card => {
+      const title  = card.dataset.title  || '';
+      const status = card.dataset.status || '';
+      const due    = card.dataset.due    || '';
+
+      const matchSearch = !q || title.includes(q);
+      let   matchFilter = true;
+      if (_activeFilter === 'today')   matchFilter = due === today;
+      if (_activeFilter === 'pending') matchFilter = status === 'pending';
+      if (_activeFilter === 'done')    matchFilter = status === 'completed' || status === 'missed';
+
+      const show = matchSearch && matchFilter;
+      card.style.display = show ? '' : 'none';
+      if (show) anyVisible = true;
+    });
+
+    updateEmptyState(!anyVisible);
+  }
+
+  function setFilter(val) {
+    _activeFilter = val;
+    document.querySelectorAll('[data-filter]').forEach(btn => {
+      const active = btn.dataset.filter === val;
+      btn.className = active ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-ghost';
+      btn.style.borderRadius = '20px';
+      if (!active) btn.style.border = '1px solid var(--border)';
+      else btn.style.border = 'none';
+    });
+    filterTasks();
+  }
+
+  function updateEmptyState(forceEmpty) {
+    const list  = document.getElementById('task-list');
+    const empty = document.getElementById('empty-state');
+    const cards = list ? [...list.querySelectorAll('[id^="task-"]')].filter(c => c.style.display !== 'none') : [];
+    if (forceEmpty || cards.length === 0) {
+      if (!empty) {
+        const div = document.createElement('div');
+        div.id = 'empty-state';
+        div.style.cssText = 'text-align:center;padding:48px 0;';
+        div.innerHTML = '<div style="font-size:2.5rem;margin-bottom:12px;">🎉</div><div style="color:var(--text-2);">No tasks match your filter.</div>';
+        list?.appendChild(div);
+      }
+    } else {
+      empty?.remove();
+    }
+  }
+</script>
+
+{% endblock %}
